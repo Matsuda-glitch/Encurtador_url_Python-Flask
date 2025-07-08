@@ -1,14 +1,28 @@
 from flask import Flask, request, redirect, jsonify
 import string
 import random
+import json
+import os
 
 app = Flask(__name__)
 
-# Dicionário para armazenar os links encurtados
-url_mapping = {}
+URLS_FILE = 'urls.json'
+
+# Carrega as URLs do arquivo JSON, se existir
+def load_urls():
+    if os.path.exists(URLS_FILE):
+        with open(URLS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+# Salva as URLs no arquivo JSON
+def save_urls(urls):
+    with open(URLS_FILE, 'w') as f:
+        json.dump(urls, f)
+
+url_mapping = load_urls()
 
 def generate_short_id(length=6):
-    """Gera um ID curto aleatório."""
     characters = string.ascii_letters + string.digits
     return ''.join(random.choice(characters) for _ in range(length))
 
@@ -18,19 +32,18 @@ def home():
 
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
-    """Encurta uma URL."""
     original_url = request.json.get('url')
     if not original_url:
         return jsonify({'error': 'URL is required'}), 400
 
     short_id = generate_short_id()
     url_mapping[short_id] = original_url
+    save_urls(url_mapping)
     short_url = request.host_url + short_id
     return jsonify({'short_url': short_url}), 201
 
 @app.route('/<short_id>', methods=['GET'])
 def redirect_to_url(short_id):
-    """Redireciona para a URL original."""
     original_url = url_mapping.get(short_id)
     if original_url:
         return redirect(original_url)
